@@ -1,0 +1,44 @@
+2026-08-18 09:00:01 INFO Application started successfully on server node-1
+2026-08-18 09:00:05 INFO Initializing database connection pool (maxPoolSize=20)
+2026-08-18 09:00:12 INFO Database connection pool initialized successfully
+2026-08-18 09:01:10 INFO User 'admin' logged in from IP 192.168.1.10
+2026-08-18 09:02:15 INFO User 'admin' opened Dashboard
+2026-08-18 09:03:00 WARNING Memory usage exceeded 75% threshold
+2026-08-18 09:03:45 WARNING Disk I/O latency high on volume /var/data
+2026-08-18 09:04:10 WARNING Slow query detected: SELECT * FROM transaction_logs (duration 4.2s)
+2026-08-18 09:05:20 WARNING Slow database response time: 2500ms
+2026-08-18 09:05:50 WARNING User session timeout warning for session_id=88312
+2026-08-18 09:06:10 ERROR Database connection failed
+2026-08-18 09:06:15 ERROR Database connection failed
+2026-08-18 09:06:20 ERROR Database connection failed
+2026-08-18 09:06:25 ERROR Database connection failed
+2026-08-18 09:07:10 INFO Database connection restored after automatic retry
+2026-08-18 09:08:00 INFO User 'johndoe' logged in from IP 10.0.0.45
+2026-08-18 09:09:15 INFO Data sync started for tenant ID 1042
+2026-08-18 09:10:01 WARNING Failed login attempt for user 'guest' from IP 203.0.113.5
+2026-08-18 09:10:05 WARNING Failed login attempt for user 'guest' from IP 203.0.113.5
+2026-08-18 09:10:10 WARNING Failed login attempt for user 'guest' from IP 203.0.113.5
+2026-08-18 09:10:15 WARNING Failed login attempt for user 'root' from IP 203.0.113.5
+2026-08-18 09:11:00 INFO IP 203.0.113.5 temporarily rate-limited
+2026-08-18 09:12:30 WARNING High CPU utilization detected: 88%
+2026-08-18 09:13:00 WARNING Cache miss ratio high: 42%
+2026-08-18 09:14:10 WARNING API rate limit threshold reached for client_id=APP_9912
+2026-08-18 09:15:00 WARNING SSL Certificate expiration in 14 days
+2026-08-18 09:15:30 WARNING Deprecated API endpoint accessed: /v1/user/getDetails
+2026-08-18 09:16:00 ERROR Out of memory error in worker process thread-4
+2026-08-18 09:16:30 ERROR NullPointerExceptions in PaymentGateway.processPayment()
+2026-08-18 09:17:15 ERROR Timeout waiting for response from microservice authentication-service
+INVALID LOG LINE TEST CONTENT WITHOUT TIMESTAMP OR LEVEL
+2026-08-18 09:18:00 INFO Payment processing service restarted successfully
+2026-08-18 09:19:10 INFO User 'alice' logged in from IP 192.168.1.15
+2026-08-18 09:20:00 INFO Profile update requested by user 'alice'
+2026-08-18 09:21:05 INFO Invoice #99102 generated for account #5012
+2026-08-18 09:22:30 INFO Email notification sent to user@example.com
+2026-08-18 09:23:45 WARNING Garbage collection pause exceeded threshold: 1200ms
+2026-08-18 09:25:00 ERROR Failed to write audit log to disk: Permission denied
+2026-08-18 09:26:00 INFO Daily scheduled backup completed successfully
+2026-08-18 09:27:10 INFO Cache purged successfully
+2026-08-18 09:28:00 WARNING Temporary directory storage space low: 8% remaining
+MALFORMED 2026-99-99 NOT_A_LEVEL
+2026-08-18 09:29:15 INFO Metrics collector exported 450 metrics
+2026-08-18 09:30:00 INFO Health check status: GREEN

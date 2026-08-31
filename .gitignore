@@ -1,0 +1,30 @@
+# Environment variables containing sensitive secrets
+.env
+*.env
+
+# Compiled Java class files
+*.class
+out/
+bin/
+backend/out/
+
+# Node & React build directories
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+
+# Reports generated during execution
+reports/summary_report.txt
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE configuration files
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
