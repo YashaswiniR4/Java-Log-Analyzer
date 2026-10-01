@@ -261,6 +261,19 @@ export default function App() {
     }
   };
 
+  // Authentication Barrier: Require user login before accessing dashboard
+  if (!currentUser) {
+    return (
+      <div className="auth-landing-bg">
+        <AuthModal
+          isOpen={true}
+          onClose={null}
+          onAuthSuccess={handleAuthSuccess}
+        />
+      </div>
+    );
+  }
+
   return (
     <div class="app-layout">
       {/* Hidden File Selector Input */}

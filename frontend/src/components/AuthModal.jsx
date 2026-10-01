@@ -204,14 +204,17 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
   return (
     <div className="auth-overlay">
       <div className="auth-card glassmorphism">
-        <button className="auth-close-btn" onClick={onClose} title="Close Modal">
-          ✕
-        </button>
+        {/* Hide close button if user is not logged in */}
+        {onClose && (
+          <button className="auth-close-btn" onClick={onClose} title="Close Modal">
+            ✕
+          </button>
+        )}
 
         {/* Auth Header Logo */}
         <div className="auth-header">
-          <div className="auth-logo">🛡️ SentinelAI</div>
-          <p className="auth-subtitle">Company-Level Authentication System</p>
+          <div className="auth-logo">⚡ LogAnalyzer <span style={{ fontSize: '0.8rem', background: '#3b82f6', color: '#fff', padding: '2px 8px', borderRadius: '4px', marginLeft: '4px' }}>PRO</span></div>
+          <p className="auth-subtitle">Enterprise Log Observability & Authentication System</p>
         </div>
 
         {/* Tab Navigation */}
