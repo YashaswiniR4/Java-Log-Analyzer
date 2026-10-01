@@ -68,10 +68,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
       setLoading(false);
 
       if (data.success) {
-        if (data.otpCode) {
-          setFormData(prev => ({ ...prev, otpCode: data.otpCode }));
-        }
-        setSuccessMessage(data.message || 'Registration successful! Verification OTP generated.');
+        setFormData(prev => ({ ...prev, otpCode: '' }));
+        setSuccessMessage(data.message || 'Registration successful! A verification OTP has been sent to your email.');
         setMode('otp');
       } else {
         setErrorMessage(data.message || 'Registration failed');
@@ -84,6 +82,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
+    if (!formData.otpCode) {
+      setErrorMessage('Please enter the 6-digit OTP code sent to your email');
+      return;
+    }
     setLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -94,7 +96,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: formData.email,
-          otpCode: formData.otpCode || '123456',
+          otpCode: formData.otpCode,
         }),
       });
       const data = await res.json();
@@ -161,12 +163,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
       const data = await res.json();
       setLoading(false);
 
-      if (data.resetToken) {
-        setFormData(prev => ({ ...prev, resetToken: data.resetToken }));
-        setSuccessMessage(data.message + ' (Demo Reset Token: ' + data.resetToken + ')');
-      } else {
-        setSuccessMessage(data.message || 'If an account exists for this email, you will receive a password reset link.');
-      }
+      setSuccessMessage(data.message || 'If an account exists for this email, you will receive a password reset link.');
     } catch (err) {
       setLoading(false);
       setErrorMessage('Error requesting password reset');
@@ -384,18 +381,18 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
         {mode === 'otp' && (
           <form className="auth-form" onSubmit={handleVerifyOtp}>
             <div className="otp-info">
-              An Email Verification Code (OTP) was generated for <strong>{formData.email}</strong>.
-              <div style={{ marginTop: '6px', background: 'rgba(59, 130, 246, 0.15)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#93c5fd' }}>
-                🔑 <strong>Verification Code:</strong> <span style={{ fontFamily: 'monospace', fontSize: '1rem', color: '#60a5fa', fontWeight: 700 }}>{formData.otpCode || '123456'}</span> (or enter <strong>123456</strong>)
-              </div>
+              A 6-digit Email Verification Code (OTP) has been sent to <strong>{formData.email}</strong> via Gmail.
+              <p style={{ marginTop: '8px', color: '#93c5fd', fontSize: '0.9rem', background: 'rgba(59, 130, 246, 0.15)', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                📩 <strong>Check Your Email:</strong> Please open your Gmail inbox (or spam folder), locate the 6-digit OTP verification code, and enter it below to activate your account.
+              </p>
             </div>
             <div className="form-group">
               <label>6-Digit Verification OTP Code</label>
               <input
                 type="text"
                 name="otpCode"
-                placeholder="e.g. 123456"
-                value={formData.otpCode || '123456'}
+                placeholder="Enter 6-digit OTP from email"
+                value={formData.otpCode}
                 onChange={handleChange}
                 maxLength="6"
                 required

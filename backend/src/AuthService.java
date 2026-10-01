@@ -129,7 +129,9 @@ public class AuthService {
 
         AuthResult result = new AuthResult(true, msg);
         result.setUser(newUser);
-        result.setOtpCode(otpCode);
+        if (!emailSent) {
+            result.setOtpCode(otpCode);
+        }
         return result;
     }
 
@@ -236,7 +238,9 @@ public class AuthService {
             System.out.println("[AUTH] Password Reset Link generated for " + email + ": https://sentinelai.local/reset-password?token=" + resetToken);
             
             AuthResult result = new AuthResult(true, securityMsg);
-            result.setResetToken(resetToken);
+            if (!emailService.isEnabled()) {
+                result.setResetToken(resetToken);
+            }
             return result;
         }
 
