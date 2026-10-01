@@ -1,0 +1,4 @@
+2026-10-01 10:00:00 DEBUG Debugging variable x = 42
+2026-10-01 10:01:00 TRACE Entering method executeQuery()
+2026-10-01 10:02:00 FATAL System core dump generated
+2026-10-01 10:03:00 NOTICE Service registered

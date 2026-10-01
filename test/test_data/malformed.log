@@ -1,0 +1,6 @@
+This is a random text line with no structure
+2026-10-01 10:00:00 INVALID_LEVEL Server restarted
+2026-10-01 10:01:00 INFO
+10/01/2026 10:02:00 ERROR Database failed
+2026-10-01 ERROR Missing timestamp field
+Corrupted data line $$$%%%***

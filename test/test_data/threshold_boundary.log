@@ -1,0 +1,15 @@
+2026-10-01 10:00:01 ERROR Connection timeout error
+2026-10-01 10:00:02 ERROR Connection timeout error
+2026-10-01 10:00:03 ERROR Out of memory exception
+2026-10-01 10:00:04 ERROR File not found error
+2026-10-01 10:00:05 ERROR Disk read error
+2026-10-01 10:00:06 WARNING Failed login attempt
+2026-10-01 10:00:07 WARNING Failed login attempt
+2026-10-01 10:00:08 WARNING High latency 1
+2026-10-01 10:00:09 WARNING High latency 2
+2026-10-01 10:00:10 WARNING High latency 3
+2026-10-01 10:00:11 WARNING High latency 4
+2026-10-01 10:00:12 WARNING High latency 5
+2026-10-01 10:00:13 WARNING High latency 6
+2026-10-01 10:00:14 WARNING High latency 7
+2026-10-01 10:00:15 WARNING High latency 8
