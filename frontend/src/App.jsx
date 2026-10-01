@@ -5,6 +5,8 @@ import AlertsFeed from './components/AlertsFeed';
 import LogTable from './components/LogTable';
 import ReportModal from './components/ReportModal';
 import AuthModal from './components/AuthModal';
+import SecurityAlertsView from './components/SecurityAlertsView';
+import SupabaseView from './components/SupabaseView';
 import { 
   Activity, 
   RotateCw, 
@@ -289,7 +291,11 @@ export default function App() {
         {/* Top Header */}
         <header class="top-header">
           <div class="header-title-wrapper">
-            <h1>Logs Explorer & Security Observability</h1>
+            <h1>
+              {activeTab === 'explorer' && 'Logs Explorer & Security Observability'}
+              {activeTab === 'alerts' && 'Security & Anomaly Detection Center'}
+              {activeTab === 'supabase' && 'Supabase PostgreSQL Database Operations'}
+            </h1>
             <span class="badge-connected">
               <span class="dot"></span>
               {summary.dbConnected ? 'Connected to Supabase PostgreSQL' : 'Local Mode'}
@@ -343,59 +349,78 @@ export default function App() {
           </div>
         )}
 
-        {/* Viewport Content */}
+        {/* Viewport Content switched by activeTab */}
         <div class="content-body">
-          {/* Top Metrics Cards Row */}
-          <div class="metrics-row">
-            <div class="metric-card card-total">
-              <div class="metric-info">
-                <span class="label">Total Logs</span>
-                <div class="val">{summary.totalLogs}</div>
-              </div>
-              <div class="metric-icon-box icon-blue">
-                <Layers size={20} />
-              </div>
-            </div>
+          {activeTab === 'explorer' && (
+            <>
+              {/* Top Metrics Cards Row */}
+              <div class="metrics-row">
+                <div class="metric-card card-total">
+                  <div class="metric-info">
+                    <span class="label">Total Logs</span>
+                    <div class="val">{summary.totalLogs}</div>
+                  </div>
+                  <div class="metric-icon-box icon-blue">
+                    <Layers size={20} />
+                  </div>
+                </div>
 
-            <div class="metric-card card-info">
-              <div class="metric-info">
-                <span class="label">INFO Logs</span>
-                <div class="val">{summary.infoCount}</div>
-              </div>
-              <div class="metric-icon-box icon-blue">
-                <Info size={20} />
-              </div>
-            </div>
+                <div class="metric-card card-info">
+                  <div class="metric-info">
+                    <span class="label">INFO Logs</span>
+                    <div class="val">{summary.infoCount}</div>
+                  </div>
+                  <div class="metric-icon-box icon-blue">
+                    <Info size={20} />
+                  </div>
+                </div>
 
-            <div class="metric-card card-warning">
-              <div class="metric-info">
-                <span class="label">WARNING Logs</span>
-                <div class="val">{summary.warningCount}</div>
-              </div>
-              <div class="metric-icon-box icon-amber">
-                <AlertCircle size={20} />
-              </div>
-            </div>
+                <div class="metric-card card-warning">
+                  <div class="metric-info">
+                    <span class="label">WARNING Logs</span>
+                    <div class="val">{summary.warningCount}</div>
+                  </div>
+                  <div class="metric-icon-box icon-amber">
+                    <AlertCircle size={20} />
+                  </div>
+                </div>
 
-            <div class="metric-card card-error">
-              <div class="metric-info">
-                <span class="label">ERROR Logs</span>
-                <div class="val">{summary.errorCount}</div>
+                <div class="metric-card card-error">
+                  <div class="metric-info">
+                    <span class="label">ERROR Logs</span>
+                    <div class="val">{summary.errorCount}</div>
+                  </div>
+                  <div class="metric-icon-box icon-red">
+                    <Server size={20} />
+                  </div>
+                </div>
               </div>
-              <div class="metric-icon-box icon-red">
-                <Server size={20} />
-              </div>
-            </div>
-          </div>
 
-          {/* Observability Charts Panel */}
-          <ChartsPanel summary={summary} logs={logs} />
+              {/* Observability Charts Panel */}
+              <ChartsPanel summary={summary} logs={logs} />
 
-          {/* Security Alerts Feed Panel */}
-          <AlertsFeed alerts={alerts} />
+              {/* Security Alerts Feed Panel */}
+              <AlertsFeed alerts={alerts} />
 
-          {/* Expandable Logs Explorer Table */}
-          <LogTable logs={logs} loading={loadingLogs} />
+              {/* Expandable Logs Explorer Table */}
+              <LogTable logs={logs} loading={loadingLogs} />
+            </>
+          )}
+
+          {activeTab === 'alerts' && (
+            <SecurityAlertsView alerts={alerts} logs={logs} loadingLogs={loadingLogs} />
+          )}
+
+          {activeTab === 'supabase' && (
+            <SupabaseView
+              summary={summary}
+              logs={logs}
+              alerts={alerts}
+              handleSyncDatabase={handleSyncDatabase}
+              syncing={syncing}
+              loadingLogs={loadingLogs}
+            />
+          )}
         </div>
       </div>
 
