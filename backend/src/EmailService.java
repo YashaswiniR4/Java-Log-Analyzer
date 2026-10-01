@@ -160,9 +160,16 @@ public class EmailService {
     }
 
     private String readResponse(BufferedReader reader) throws Exception {
-        String line = reader.readLine();
-        if (line == null) return "";
-        return line;
+        String line;
+        String lastLine = "";
+        while ((line = reader.readLine()) != null) {
+            System.out.println("[SMTP <<] " + line);
+            lastLine = line;
+            if (line.length() >= 4 && line.charAt(3) == ' ') {
+                break;
+            }
+        }
+        return lastLine;
     }
 
     public boolean isEnabled() { return enabled; }
