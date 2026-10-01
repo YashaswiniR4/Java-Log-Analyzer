@@ -305,4 +305,205 @@ public class DatabaseManager {
     public boolean isJdbcConfigured() { return jdbcConfigured; }
     public boolean isRestConfigured() { return restConfigured; }
     public String getSupabaseDbUrl() { return supabaseDbUrl; }
+
+    // ================================================================================
+    //                     USER MANAGEMENT & AUTHENTICATION JDBC
+    // ================================================================================
+
+    public void initUserTables() {
+        if (!jdbcConfigured) return;
+        String sqlUsers = "CREATE TABLE IF NOT EXISTS public.users (" +
+                "id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, " +
+                "name VARCHAR(100) NOT NULL, " +
+                "email VARCHAR(100) UNIQUE NOT NULL, " +
+                "username VARCHAR(50) UNIQUE NOT NULL, " +
+                "phone VARCHAR(20), " +
+                "password_hash VARCHAR(255) NOT NULL, " +
+                "role VARCHAR(20) DEFAULT 'USER', " +
+                "is_verified BOOLEAN DEFAULT FALSE, " +
+                "is_active BOOLEAN DEFAULT TRUE, " +
+                "otp_code VARCHAR(10), " +
+                "created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP" +
+                ")";
+
+        String sqlResetTokens = "CREATE TABLE IF NOT EXISTS public.password_reset_tokens (" +
+                "id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, " +
+                "user_id BIGINT NOT NULL, " +
+                "token_hash VARCHAR(255) NOT NULL, " +
+                "expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, " +
+                "used BOOLEAN DEFAULT FALSE, " +
+                "created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP" +
+                ")";
+
+        try (Connection conn = DriverManager.getConnection(supabaseDbUrl);
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(sqlUsers);
+            stmt.execute(sqlResetTokens);
+            System.out.println("[SUCCESS] Initialized Supabase Auth Tables (public.users, public.password_reset_tokens)");
+        } catch (SQLException e) {
+            System.out.println("[INFO] Auth Tables Initialization check: " + e.getMessage());
+        }
+    }
+
+    public boolean saveUser(User user) {
+        if (!jdbcConfigured || user == null) return false;
+        String sql = "INSERT INTO public.users (name, email, username, phone, password_hash, role, is_verified, is_active, otp_code) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+        try (Connection conn = DriverManager.getConnection(supabaseDbUrl);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, user.getName());
+            pstmt.setString(2, user.getEmail());
+            pstmt.setString(3, user.getUsername());
+            pstmt.setString(4, user.getPhone());
+            pstmt.setString(5, user.getPasswordHash());
+            pstmt.setString(6, user.getRole());
+            pstmt.setBoolean(7, user.isVerified());
+            pstmt.setBoolean(8, user.isActive());
+            pstmt.setString(9, user.getOtpCode());
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    user.setId(rs.getLong("id"));
+                    return true;
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("[ERROR] JDBC Save User Failed: " + e.getMessage());
+        }
+        return false;
+    }
+
+    public User findUserByEmail(String email) {
+        if (!jdbcConfigured || email == null) return null;
+        String sql = "SELECT id, name, email, username, phone, password_hash, role, is_verified, is_active, otp_code, created_at FROM public.users WHERE LOWER(email) = ?";
+        try (Connection conn = DriverManager.getConnection(supabaseDbUrl);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, email.trim().toLowerCase());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapUserRow(rs);
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("[ERROR] JDBC Find User By Email Failed: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public User findUserByUsername(String username) {
+        if (!jdbcConfigured || username == null) return null;
+        String sql = "SELECT id, name, email, username, phone, password_hash, role, is_verified, is_active, otp_code, created_at FROM public.users WHERE LOWER(username) = ?";
+        try (Connection conn = DriverManager.getConnection(supabaseDbUrl);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username.trim().toLowerCase());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapUserRow(rs);
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("[ERROR] JDBC Find User By Username Failed: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public User findUserById(long id) {
+        if (!jdbcConfigured) return null;
+        String sql = "SELECT id, name, email, username, phone, password_hash, role, is_verified, is_active, otp_code, created_at FROM public.users WHERE id = ?";
+        try (Connection conn = DriverManager.getConnection(supabaseDbUrl);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setLong(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapUserRow(rs);
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("[ERROR] JDBC Find User By ID Failed: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public boolean updateUserVerification(long userId, boolean verified) {
+        if (!jdbcConfigured) return false;
+        String sql = "UPDATE public.users SET is_verified = ? WHERE id = ?";
+        try (Connection conn = DriverManager.getConnection(supabaseDbUrl);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setBoolean(1, verified);
+            pstmt.setLong(2, userId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("[ERROR] JDBC Update Verification Failed: " + e.getMessage());
+        }
+        return false;
+    }
+
+    public boolean savePasswordResetToken(long userId, String tokenHash, LocalDateTime expiresAt) {
+        if (!jdbcConfigured) return false;
+        String sql = "INSERT INTO public.password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)";
+        try (Connection conn = DriverManager.getConnection(supabaseDbUrl);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setLong(1, userId);
+            pstmt.setString(2, tokenHash);
+            pstmt.setTimestamp(3, Timestamp.valueOf(expiresAt));
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("[ERROR] JDBC Save Password Reset Token Failed: " + e.getMessage());
+        }
+        return false;
+    }
+
+    public boolean invalidateResetToken(String tokenHash) {
+        if (!jdbcConfigured) return false;
+        String sql = "UPDATE public.password_reset_tokens SET used = true WHERE token_hash = ?";
+        try (Connection conn = DriverManager.getConnection(supabaseDbUrl);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, tokenHash);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("[ERROR] JDBC Invalidate Reset Token Failed: " + e.getMessage());
+        }
+        return false;
+    }
+
+    public boolean updateUserPassword(long userId, String newPasswordHash) {
+        if (!jdbcConfigured) return false;
+        String sql = "UPDATE public.users SET password_hash = ? WHERE id = ?";
+        try (Connection conn = DriverManager.getConnection(supabaseDbUrl);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, newPasswordHash);
+            pstmt.setLong(2, userId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("[ERROR] JDBC Update User Password Failed: " + e.getMessage());
+        }
+        return false;
+    }
+
+    private User mapUserRow(ResultSet rs) throws SQLException {
+        Timestamp ts = rs.getTimestamp("created_at");
+        LocalDateTime createdAt = ts != null ? ts.toLocalDateTime() : LocalDateTime.now();
+        User u = new User(
+                rs.getLong("id"),
+                rs.getString("name"),
+                rs.getString("email"),
+                rs.getString("username"),
+                rs.getString("phone"),
+                rs.getString("password_hash"),
+                rs.getString("role"),
+                rs.getBoolean("is_verified"),
+                rs.getBoolean("is_active"),
+                createdAt
+        );
+        u.setOtpCode(rs.getString("otp_code"));
+        return u;
+    }
 }

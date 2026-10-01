@@ -15,7 +15,8 @@ public class TestRunner {
             AlertDetectorTest.class,
             ReportGeneratorTest.class,
             EdgeCaseTest.class,
-            IntegrationTest.class
+            IntegrationTest.class,
+            AuthServiceTest.class
         };
 
         int totalRun = 0;

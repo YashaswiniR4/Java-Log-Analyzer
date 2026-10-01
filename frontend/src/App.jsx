@@ -4,6 +4,7 @@ import ChartsPanel from './components/ChartsPanel';
 import AlertsFeed from './components/AlertsFeed';
 import LogTable from './components/LogTable';
 import ReportModal from './components/ReportModal';
+import AuthModal from './components/AuthModal';
 import { 
   Activity, 
   RotateCw, 
@@ -15,7 +16,9 @@ import {
   X,
   Layers, 
   Info,
-  Server
+  Server,
+  User as UserIcon,
+  LogOut
 } from 'lucide-react';
 import './App.css';
 
@@ -24,6 +27,22 @@ export default function App() {
   const [selectedLevels, setSelectedLevels] = useState(['INFO', 'WARNING', 'ERROR']);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [dateFilter, setDateFilter] = useState('');
+
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sentinel_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [authToken, setAuthToken] = useState(() => {
+    return localStorage.getItem('sentinel_token') || null;
+  });
+
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const [summary, setSummary] = useState({
     totalLogs: 0,
@@ -59,6 +78,31 @@ export default function App() {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchKeyword]);
+
+  const handleAuthSuccess = (user, token) => {
+    setCurrentUser(user);
+    setAuthToken(token);
+    localStorage.setItem('sentinel_user', JSON.stringify(user));
+    localStorage.setItem('sentinel_token', token);
+    setAuthModalOpen(false);
+    showNotification('success', `Welcome back, ${user.name}! Authenticated as ${user.role}.`);
+  };
+
+  const handleLogout = async () => {
+    if (authToken) {
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${authToken}` },
+        });
+      } catch (e) {}
+    }
+    setCurrentUser(null);
+    setAuthToken(null);
+    localStorage.removeItem('sentinel_user');
+    localStorage.removeItem('sentinel_token');
+    showNotification('success', 'Logged out successfully.');
+  };
 
   const showNotification = (type, message) => {
     setNotification({ type, message });
@@ -253,6 +297,24 @@ export default function App() {
           </div>
 
           <div class="header-right-actions">
+            {/* User Profile Chip / Auth Control */}
+            {currentUser ? (
+              <div className="user-profile-chip">
+                <UserIcon size={14} />
+                <span className="user-name">{currentUser.name}</span>
+                <span className="user-role">{currentUser.role}</span>
+                <button className="btn btn-logout" onClick={handleLogout} title="Log Out">
+                  <LogOut size={13} />
+                  <span>Logout</span>
+                </button>
+              </div>
+            ) : (
+              <button className="btn btn-auth" onClick={() => setAuthModalOpen(true)}>
+                <UserIcon size={14} />
+                <span>Sign In / Register</span>
+              </button>
+            )}
+
             <button class="btn btn-upload" onClick={handleUploadClick} disabled={uploading}>
               <Upload size={14} />
               <span>{uploading ? 'Analyzing File...' : 'Upload Log'}</span>
@@ -342,6 +404,13 @@ export default function App() {
         open={reportModalOpen}
         onClose={() => setReportModalOpen(false)}
         reportText={reportText}
+      />
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
       />
     </div>
   );

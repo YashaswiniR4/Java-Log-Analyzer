@@ -27,6 +27,7 @@ public class LogWebServer {
     private final AlertDetector alertDetector;
     private final ReportGenerator reportGenerator;
     private final DatabaseManager databaseManager;
+    private final AuthService authService;
     private String logFilePath;
     private HttpServer server;
 
@@ -37,6 +38,7 @@ public class LogWebServer {
         this.alertDetector = alertDetector;
         this.reportGenerator = reportGenerator;
         this.databaseManager = databaseManager;
+        this.authService = new AuthService(databaseManager);
         this.logFilePath = logFilePath;
     }
 
@@ -51,6 +53,15 @@ public class LogWebServer {
         server.createContext("/api/report", new ReportHandler());
         server.createContext("/api/sync", new SyncHandler());
         server.createContext("/api/upload", new UploadHandler());
+
+        // Auth REST API Handlers
+        server.createContext("/api/auth/register", new AuthRegisterHandler());
+        server.createContext("/api/auth/verify-otp", new AuthVerifyOtpHandler());
+        server.createContext("/api/auth/login", new AuthLoginHandler());
+        server.createContext("/api/auth/forgot-password", new AuthForgotPasswordHandler());
+        server.createContext("/api/auth/reset-password", new AuthResetPasswordHandler());
+        server.createContext("/api/auth/me", new AuthMeHandler());
+        server.createContext("/api/auth/logout", new AuthLogoutHandler());
 
         // Static Assets Handler (Serves frontend dashboard)
         server.createContext("/", new StaticFileHandler());
@@ -357,6 +368,179 @@ public class LogWebServer {
                 sendJsonResponse(exchange, 500, "{\"success\":false,\"message\":\"Upload processing error: " + escapeJson(e.getMessage()) + "\"}");
             }
         }
+    }
+
+    // ================================================================================
+    //                       AUTHENTICATION HANDLERS
+    // ================================================================================
+
+    private class AuthRegisterHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 204, "");
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 405, "{\"success\":false,\"message\":\"Method not allowed\"}");
+                return;
+            }
+            String body = readRequestBody(exchange);
+            String name = getJsonValue(body, "name");
+            String email = getJsonValue(body, "email");
+            String username = getJsonValue(body, "username");
+            String phone = getJsonValue(body, "phone");
+            String password = getJsonValue(body, "password");
+            String confirmPassword = getJsonValue(body, "confirmPassword");
+
+            AuthService.AuthResult res = authService.register(name, email, username, phone, password, confirmPassword);
+            sendJsonResponse(exchange, res.isSuccess() ? 200 : 400, res.toJson());
+        }
+    }
+
+    private class AuthVerifyOtpHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 204, "");
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 405, "{\"success\":false,\"message\":\"Method not allowed\"}");
+                return;
+            }
+            String body = readRequestBody(exchange);
+            String email = getJsonValue(body, "email");
+            String otpCode = getJsonValue(body, "otpCode");
+
+            AuthService.AuthResult res = authService.verifyOtp(email, otpCode);
+            sendJsonResponse(exchange, res.isSuccess() ? 200 : 400, res.toJson());
+        }
+    }
+
+    private class AuthLoginHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 204, "");
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 405, "{\"success\":false,\"message\":\"Method not allowed\"}");
+                return;
+            }
+            String body = readRequestBody(exchange);
+            String identifier = getJsonValue(body, "identifier");
+            if (identifier == null) identifier = getJsonValue(body, "email");
+            String password = getJsonValue(body, "password");
+
+            AuthService.AuthResult res = authService.login(identifier, password);
+            sendJsonResponse(exchange, res.isSuccess() ? 200 : 401, res.toJson());
+        }
+    }
+
+    private class AuthForgotPasswordHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 204, "");
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 405, "{\"success\":false,\"message\":\"Method not allowed\"}");
+                return;
+            }
+            String body = readRequestBody(exchange);
+            String email = getJsonValue(body, "email");
+
+            AuthService.AuthResult res = authService.forgotPassword(email);
+            sendJsonResponse(exchange, 200, res.toJson());
+        }
+    }
+
+    private class AuthResetPasswordHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 204, "");
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 405, "{\"success\":false,\"message\":\"Method not allowed\"}");
+                return;
+            }
+            String body = readRequestBody(exchange);
+            String token = getJsonValue(body, "token");
+            String newPassword = getJsonValue(body, "newPassword");
+            String confirmPassword = getJsonValue(body, "confirmPassword");
+
+            AuthService.AuthResult res = authService.resetPassword(token, newPassword, confirmPassword);
+            sendJsonResponse(exchange, res.isSuccess() ? 200 : 400, res.toJson());
+        }
+    }
+
+    private class AuthMeHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 204, "");
+                return;
+            }
+            String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+            String token = null;
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                token = authHeader.substring(7);
+            }
+
+            User user = authService.validateToken(token);
+            if (user != null) {
+                sendJsonResponse(exchange, 200, "{\"success\":true,\"user\":" + user.toJson() + "}");
+            } else {
+                sendJsonResponse(exchange, 401, "{\"success\":false,\"message\":\"Unauthorized. Token invalid or expired.\"}");
+            }
+        }
+    }
+
+    private class AuthLogoutHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 204, "");
+                return;
+            }
+            String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+            String token = null;
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                token = authHeader.substring(7);
+            }
+            authService.logout(token);
+            sendJsonResponse(exchange, 200, "{\"success\":true,\"message\":\"Logged out successfully.\"}");
+        }
+    }
+
+    private static String readRequestBody(HttpExchange exchange) throws IOException {
+        try (InputStream is = exchange.getRequestBody(); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int n;
+            while ((n = is.read(buffer)) != -1) {
+                baos.write(buffer, 0, n);
+            }
+            return baos.toString(StandardCharsets.UTF_8);
+        }
+    }
+
+    private static String getJsonValue(String json, String key) {
+        if (json == null || key == null) return null;
+        String pattern = "\"" + key + "\":\"";
+        int start = json.indexOf(pattern);
+        if (start != -1) {
+            start += pattern.length();
+            int end = json.indexOf("\"", start);
+            if (end != -1) {
+                return json.substring(start, end).replace("\\\"", "\"").replace("\\\\", "\\");
+            }
+        }
+        return null;
     }
 
     private static class StaticFileHandler implements HttpHandler {

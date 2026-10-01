@@ -42,10 +42,41 @@ CREATE TABLE IF NOT EXISTS public.summary_reports (
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 4. Create users table for Company-Level Authentication Flow
+CREATE TABLE IF NOT EXISTS public.users (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) DEFAULT 'USER',
+    is_verified BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    otp_code VARCHAR(10),
+    otp_expires_at TIMESTAMP WITHOUT TIME ZONE,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
+CREATE INDEX IF NOT EXISTS idx_users_username ON public.users(username);
+
+-- 5. Create password_reset_tokens table
+CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    token_hash VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Enable Row Level Security (RLS) policies for Supabase public access (optional)
 ALTER TABLE public.logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.summary_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.password_reset_tokens ENABLE ROW LEVEL SECURITY;
 
 -- Allow read/write access via anon key for testing
 CREATE POLICY "Allow public read access on logs" ON public.logs FOR SELECT USING (true);
@@ -56,3 +87,11 @@ CREATE POLICY "Allow public insert access on alerts" ON public.alerts FOR INSERT
 
 CREATE POLICY "Allow public read access on summary_reports" ON public.summary_reports FOR SELECT USING (true);
 CREATE POLICY "Allow public insert access on summary_reports" ON public.summary_reports FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow public read access on users" ON public.users FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access on users" ON public.users FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access on users" ON public.users FOR UPDATE USING (true);
+
+CREATE POLICY "Allow public read access on reset_tokens" ON public.password_reset_tokens FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access on reset_tokens" ON public.password_reset_tokens FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access on reset_tokens" ON public.password_reset_tokens FOR UPDATE USING (true);
