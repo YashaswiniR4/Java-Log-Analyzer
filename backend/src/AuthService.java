@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AuthService {
 
     private final DatabaseManager dbManager;
+    private final EmailService emailService;
     // In-memory token store (Token -> User ID) for fast session verification & offline support
     private static final Map<String, Long> ACTIVE_SESSIONS = new ConcurrentHashMap<>();
     private static final Map<String, User> IN_MEMORY_USERS_BY_EMAIL = new ConcurrentHashMap<>();
@@ -37,6 +38,7 @@ public class AuthService {
 
     public AuthService(DatabaseManager dbManager) {
         this.dbManager = dbManager;
+        this.emailService = new EmailService();
         // Ensure user tables exist in database
         if (dbManager != null) {
             dbManager.initUserTables();
@@ -116,9 +118,16 @@ public class AuthService {
         IN_MEMORY_USERS_BY_EMAIL.put(email, newUser);
         IN_MEMORY_USERS_BY_USERNAME.put(username, newUser);
 
-        System.out.println("[AUTH] Registered User: " + email + " | BCrypt Hash: " + passwordHash.substring(0, 15) + "... | OTP: " + otpCode);
+        // Send real email via Gmail SMTP if credentials configured in .env
+        boolean emailSent = emailService.sendOtpEmail(email, name, otpCode);
 
-        AuthResult result = new AuthResult(true, "Registration successful! An OTP code has been sent to " + email + " for verification.");
+        System.out.println("[AUTH] Registered User: " + email + " | BCrypt Hash: " + passwordHash.substring(0, 15) + "... | OTP: " + otpCode + " | Email Sent: " + emailSent);
+
+        String msg = emailSent
+                ? "Registration successful! A verification OTP has been sent to " + email + "."
+                : "Registration successful! Verification OTP generated for " + email + ".";
+
+        AuthResult result = new AuthResult(true, msg);
         result.setUser(newUser);
         result.setOtpCode(otpCode);
         return result;
@@ -220,6 +229,9 @@ public class AuthService {
             if (dbManager != null && dbManager.isJdbcConfigured()) {
                 dbManager.savePasswordResetToken(user.getId(), resetToken, expiresAt);
             }
+
+            // Send real email via Gmail SMTP
+            emailService.sendPasswordResetEmail(email, resetToken);
 
             System.out.println("[AUTH] Password Reset Link generated for " + email + ": https://sentinelai.local/reset-password?token=" + resetToken);
             
