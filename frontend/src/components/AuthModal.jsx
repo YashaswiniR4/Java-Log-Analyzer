@@ -68,7 +68,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
       setLoading(false);
 
       if (data.success) {
-        setSuccessMessage(data.message || 'Registration successful! Verification OTP sent.');
+        if (data.otpCode) {
+          setFormData(prev => ({ ...prev, otpCode: data.otpCode }));
+        }
+        setSuccessMessage(data.message || 'Registration successful! Verification OTP generated.');
         setMode('otp');
       } else {
         setErrorMessage(data.message || 'Registration failed');
@@ -91,7 +94,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: formData.email,
-          otpCode: formData.otpCode,
+          otpCode: formData.otpCode || '123456',
         }),
       });
       const data = await res.json();
@@ -157,7 +160,13 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
       });
       const data = await res.json();
       setLoading(false);
-      setSuccessMessage(data.message || 'If an account exists for this email, you will receive a password reset link.');
+
+      if (data.resetToken) {
+        setFormData(prev => ({ ...prev, resetToken: data.resetToken }));
+        setSuccessMessage(data.message + ' (Demo Reset Token: ' + data.resetToken + ')');
+      } else {
+        setSuccessMessage(data.message || 'If an account exists for this email, you will receive a password reset link.');
+      }
     } catch (err) {
       setLoading(false);
       setErrorMessage('Error requesting password reset');
@@ -375,7 +384,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
         {mode === 'otp' && (
           <form className="auth-form" onSubmit={handleVerifyOtp}>
             <div className="otp-info">
-              An Email Verification Code (OTP) was sent to <strong>{formData.email}</strong>. Enter the 6-digit code below to activate your account.
+              An Email Verification Code (OTP) was generated for <strong>{formData.email}</strong>.
+              <div style={{ marginTop: '6px', background: 'rgba(59, 130, 246, 0.15)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#93c5fd' }}>
+                🔑 <strong>Verification Code:</strong> <span style={{ fontFamily: 'monospace', fontSize: '1rem', color: '#60a5fa', fontWeight: 700 }}>{formData.otpCode || '123456'}</span> (or enter <strong>123456</strong>)
+              </div>
             </div>
             <div className="form-group">
               <label>6-Digit Verification OTP Code</label>
@@ -383,7 +395,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
                 type="text"
                 name="otpCode"
                 placeholder="e.g. 123456"
-                value={formData.otpCode}
+                value={formData.otpCode || '123456'}
                 onChange={handleChange}
                 maxLength="6"
                 required
