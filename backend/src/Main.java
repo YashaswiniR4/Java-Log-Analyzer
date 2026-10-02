@@ -39,10 +39,24 @@ public class Main {
             loadLogFile(initialPath, false);
         }
 
+        // Check if running in non-interactive server mode (e.g., Render, Docker, or CLI --server flag)
+        boolean isServerMode = (args != null && args.length > 0 && "--server".equalsIgnoreCase(args[0]))
+                || System.getenv("PORT") != null;
+
+        if (isServerMode) {
+            startServerMode();
+            return;
+        }
+
         boolean running = true;
         while (running) {
             printMenu();
             System.out.print("Enter your choice: ");
+            if (!scanner.hasNextLine()) {
+                // Non-interactive input stream closed -> fallback to server mode
+                startServerMode();
+                break;
+            }
             String input = scanner.nextLine().trim();
 
             switch (input) {
@@ -305,5 +319,33 @@ public class Main {
             System.out.println("To enable Supabase PostgreSQL persistence, update SUPABASE_DB_URL in .env file.");
         }
         System.out.println("========================================\n");
+    }
+
+    private static void startServerMode() {
+        int port = 8080;
+        String portEnv = System.getenv("PORT");
+        if (portEnv != null && !portEnv.isBlank()) {
+            try {
+                port = Integer.parseInt(portEnv.trim());
+            } catch (Exception ignored) {}
+        }
+
+        System.out.println("\n[SERVER MODE] Launching Java Log Analyzer Web Server on port " + port + "...");
+
+        try {
+            if (analyzer == null) {
+                analyzer = new LogAnalyzer(java.util.Collections.emptyList());
+            }
+
+            webServer = new LogWebServer(port, analyzer, parser, alertDetector, reportGenerator, databaseManager, loadedFilePath);
+            webServer.start();
+
+            System.out.println("[SERVER MODE] Server active & listening on port " + port + ". Thread locked.");
+            synchronized (Main.class) {
+                Main.class.wait();
+            }
+        } catch (Exception e) {
+            System.out.println("[ERROR] Server Mode Execution Error: " + e.getMessage());
+        }
     }
 }

@@ -25,5 +25,5 @@ RUN mkdir -p out && javac -d out -cp "backend/lib/*" backend/src/*.java
 # Expose HTTP port
 EXPOSE 8080
 
-# Start Java Web Server
-CMD ["java", "-cp", "out:backend/lib/*", "Main"]
+# Start Java Web Server in Cloud Server Mode
+CMD ["java", "-cp", "out:backend/lib/*", "Main", "--server"]
