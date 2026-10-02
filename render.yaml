@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: java-log-analyzer
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    port: 8080
+    envVars:
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_USER
+        value: yashaswinir483@gmail.com
+      - key: SMTP_PASS
+        value: bqhl gmyd iczb cnxu
