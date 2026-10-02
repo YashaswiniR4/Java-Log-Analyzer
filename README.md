@@ -4,6 +4,22 @@ A clean, modular, professional Core Java application designed to parse, analyze,
 
 ---
 
+## Log Format Specification
+
+The Java Log Analyzer uses the following standardized application log format:
+
+YYYY-MM-DD HH:MM:SS LEVEL Message
+
+- Timestamp: yyyy-MM-dd HH:mm:ss
+- LEVEL: INFO / WARNING / ERROR (case-sensitive)
+- Message: unrestricted text
+- Malformed lines that do not match the required format or contain an invalid timestamp are skipped and counted separately.
+
+Example:
+2026-08-18 09:00:01 INFO Application started successfully on server node-1
+
+---
+
 ## 📁 Project Structure
 
 ```text

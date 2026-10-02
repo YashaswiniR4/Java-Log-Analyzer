@@ -238,9 +238,7 @@ public class AuthService {
             System.out.println("[AUTH] Password Reset Link generated for " + email + ": https://sentinelai.local/reset-password?token=" + resetToken);
             
             AuthResult result = new AuthResult(true, securityMsg);
-            if (!emailService.isEnabled()) {
-                result.setResetToken(resetToken);
-            }
+            result.setResetToken(resetToken);
             return result;
         }
 
