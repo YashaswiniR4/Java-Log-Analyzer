@@ -15,7 +15,6 @@ WORKDIR /app
 # Copy Java backend dependencies & source
 COPY backend/lib ./backend/lib
 COPY backend/src ./backend/src
-COPY .env ./
 
 # Copy compiled frontend dist bundle into web root
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
