@@ -542,14 +542,10 @@ public class LogWebServer {
 
     private static String getJsonValue(String json, String key) {
         if (json == null || key == null) return null;
-        String pattern = "\"" + key + "\":\"";
-        int start = json.indexOf(pattern);
-        if (start != -1) {
-            start += pattern.length();
-            int end = json.indexOf("\"", start);
-            if (end != -1) {
-                return json.substring(start, end).replace("\\\"", "\"").replace("\\\\", "\\");
-            }
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile("\"" + java.util.regex.Pattern.quote(key) + "\"\\s*:\\s*\"([^\"]*)\"");
+        java.util.regex.Matcher m = p.matcher(json);
+        if (m.find()) {
+            return m.group(1).replace("\\\"", "\"").replace("\\\\", "\\");
         }
         return null;
     }
