@@ -114,6 +114,10 @@ public class AuthService {
             saved = dbManager.saveUser(newUser);
         }
 
+        if (newUser.getId() <= 0) {
+            newUser.setId(System.nanoTime() & 0x7FFFFFFFFFFFFFFFL);
+        }
+
         // Always keep in-memory for resilience
         IN_MEMORY_USERS_BY_EMAIL.put(email, newUser);
         IN_MEMORY_USERS_BY_USERNAME.put(username, newUser);
