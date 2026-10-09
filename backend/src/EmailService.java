@@ -25,17 +25,18 @@ public class EmailService {
     }
 
     public void loadConfiguration() {
-        this.smtpHost = DotEnvLoader.get("SMTP_HOST", "smtp.gmail.com");
-        String portStr = DotEnvLoader.get("SMTP_PORT", "465");
+        this.smtpHost = DotEnvLoader.get("SMTP_HOST", "smtp.gmail.com").trim().replace("\"", "").replace("'", "");
+        String portStr = DotEnvLoader.get("SMTP_PORT", "465").trim();
         try {
             this.smtpPort = Integer.parseInt(portStr);
         } catch (Exception e) {
             this.smtpPort = 465;
         }
 
-        this.smtpUser = DotEnvLoader.get("SMTP_USER", "");
-        this.smtpPass = DotEnvLoader.get("SMTP_PASS", "");
-        this.smtpFrom = DotEnvLoader.get("SMTP_FROM", smtpUser.isEmpty() ? "LogAnalyzer PRO <no-reply@loganalyzer.com>" : smtpUser);
+        this.smtpUser = DotEnvLoader.get("SMTP_USER", "").trim().replace("\"", "").replace("'", "");
+        this.smtpPass = DotEnvLoader.get("SMTP_PASS", "").trim().replace("\"", "").replace("'", "");
+        String rawFrom = DotEnvLoader.get("SMTP_FROM", "").trim().replace("\"", "").replace("'", "");
+        this.smtpFrom = rawFrom.isBlank() ? (smtpUser.isEmpty() ? "LogAnalyzer PRO <no-reply@loganalyzer.com>" : smtpUser) : rawFrom;
 
         if (smtpUser != null && !smtpUser.isBlank() && !smtpUser.contains("YOUR_GMAIL")
                 && smtpPass != null && !smtpPass.isBlank() && !smtpPass.contains("YOUR_GMAIL_APP_PASSWORD")) {
@@ -93,60 +94,65 @@ public class EmailService {
 
         System.out.println("[EMAIL] Connecting to " + smtpHost + ":" + smtpPort + " to send email to " + toEmail + "...");
 
-        try (SSLSocket socket = (SSLSocket) SSLSocketFactory.getDefault().createSocket(smtpHost, smtpPort);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))) {
+        try (java.net.Socket plainSocket = new java.net.Socket()) {
+            plainSocket.connect(new java.net.InetSocketAddress(smtpHost, smtpPort), 5000);
+            SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+            try (SSLSocket socket = (SSLSocket) sslSocketFactory.createSocket(plainSocket, smtpHost, smtpPort, true);
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+                 BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))) {
 
-            socket.setSoTimeout(15000);
+                socket.setSoTimeout(5000);
+                socket.startHandshake();
 
-            readResponse(reader); // 220 Greeting
-            sendCommand(writer, "EHLO " + smtpHost);
-            readResponse(reader);
+                readResponse(reader); // 220 Greeting
+                sendCommand(writer, "EHLO " + smtpHost);
+                readResponse(reader);
 
-            // AUTH LOGIN
-            sendCommand(writer, "AUTH LOGIN");
-            readResponse(reader); // 334 Username prompt
+                // AUTH LOGIN
+                sendCommand(writer, "AUTH LOGIN");
+                readResponse(reader); // 334 Username prompt
 
-            sendCommand(writer, Base64.getEncoder().encodeToString(smtpUser.getBytes(StandardCharsets.UTF_8)));
-            readResponse(reader); // 334 Password prompt
+                sendCommand(writer, Base64.getEncoder().encodeToString(smtpUser.getBytes(StandardCharsets.UTF_8)));
+                readResponse(reader); // 334 Password prompt
 
-            sendCommand(writer, Base64.getEncoder().encodeToString(smtpPass.getBytes(StandardCharsets.UTF_8)));
-            String authResp = readResponse(reader); // 235 Authentication successful
+                sendCommand(writer, Base64.getEncoder().encodeToString(smtpPass.getBytes(StandardCharsets.UTF_8)));
+                String authResp = readResponse(reader); // 235 Authentication successful
 
-            if (!authResp.startsWith("235")) {
-                System.out.println("[ERROR] Gmail SMTP Authentication Failed: " + authResp);
-                return false;
-            }
+                if (!authResp.startsWith("235")) {
+                    System.out.println("[ERROR] Gmail SMTP Authentication Failed: " + authResp);
+                    return false;
+                }
 
-            // MAIL FROM
-            sendCommand(writer, "MAIL FROM:<" + smtpUser + ">");
-            readResponse(reader);
+                // MAIL FROM
+                sendCommand(writer, "MAIL FROM:<" + smtpUser + ">");
+                readResponse(reader);
 
-            // RCPT TO
-            sendCommand(writer, "RCPT TO:<" + toEmail + ">");
-            readResponse(reader);
+                // RCPT TO
+                sendCommand(writer, "RCPT TO:<" + toEmail + ">");
+                readResponse(reader);
 
-            // DATA
-            sendCommand(writer, "DATA");
-            readResponse(reader); // 354 Start mail input
+                // DATA
+                sendCommand(writer, "DATA");
+                readResponse(reader); // 354 Start mail input
 
-            // Headers & Body
-            writer.write("From: " + smtpFrom + "\r\n");
-            writer.write("To: " + toEmail + "\r\n");
-            writer.write("Subject: " + subject + "\r\n");
-            writer.write("Content-Type: text/plain; charset=UTF-8\r\n");
-            writer.write("\r\n");
-            writer.write(bodyText + "\r\n");
-            writer.write(".\r\n");
-            writer.flush();
+                // Headers & Body
+                writer.write("From: " + smtpFrom + "\r\n");
+                writer.write("To: " + toEmail + "\r\n");
+                writer.write("Subject: " + subject + "\r\n");
+                writer.write("Content-Type: text/plain; charset=UTF-8\r\n");
+                writer.write("\r\n");
+                writer.write(bodyText + "\r\n");
+                writer.write(".\r\n");
+                writer.flush();
 
-            String dataResp = readResponse(reader); // 250 OK
+                String dataResp = readResponse(reader); // 250 OK
 
-            sendCommand(writer, "QUIT");
+                sendCommand(writer, "QUIT");
 
-            if (dataResp.startsWith("250")) {
-                System.out.println("[SUCCESS] Email successfully sent to " + toEmail + " via Gmail SMTP!");
-                return true;
+                if (dataResp.startsWith("250")) {
+                    System.out.println("[SUCCESS] Email successfully sent to " + toEmail + " via Gmail SMTP!");
+                    return true;
+                }
             }
         } catch (Exception e) {
             System.out.println("[ERROR] Email Sending Error: " + e.getMessage());

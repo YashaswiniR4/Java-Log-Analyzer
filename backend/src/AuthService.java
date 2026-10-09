@@ -129,9 +129,8 @@ public class AuthService {
 
         AuthResult result = new AuthResult(true, msg);
         result.setUser(newUser);
-        if (!emailSent) {
-            result.setOtpCode(otpCode);
-        }
+        result.setOtpCode(otpCode);
+        result.setEmailSent(emailSent);
         return result;
     }
 
@@ -233,12 +232,13 @@ public class AuthService {
             }
 
             // Send real email via Gmail SMTP
-            emailService.sendPasswordResetEmail(email, resetToken);
+            boolean emailSent = emailService.sendPasswordResetEmail(email, resetToken);
 
             System.out.println("[AUTH] Password Reset Link generated for " + email + ": https://sentinelai.local/reset-password?token=" + resetToken);
             
             AuthResult result = new AuthResult(true, securityMsg);
             result.setResetToken(resetToken);
+            result.setEmailSent(emailSent);
             return result;
         }
 
@@ -361,10 +361,12 @@ public class AuthService {
         private String token;
         private String resetToken;
         private String otpCode;
+        private boolean emailSent;
 
         public AuthResult(boolean success, String message) {
             this.success = success;
             this.message = message;
+            this.emailSent = false;
         }
 
         public boolean isSuccess() { return success; }
@@ -377,6 +379,8 @@ public class AuthService {
         public void setResetToken(String resetToken) { this.resetToken = resetToken; }
         public String getOtpCode() { return otpCode; }
         public void setOtpCode(String otpCode) { this.otpCode = otpCode; }
+        public boolean isEmailSent() { return emailSent; }
+        public void setEmailSent(boolean emailSent) { this.emailSent = emailSent; }
 
         public String toJson() {
             StringBuilder json = new StringBuilder("{");
@@ -388,10 +392,11 @@ public class AuthService {
             if (token != null) {
                 json.append(",\"token\":\"").append(escapeJson(token)).append("\"");
             }
-            if (resetToken != null) {
+            boolean hideOtp = emailSent && !DotEnvLoader.get("SMTP_USER", "").isBlank();
+            if (resetToken != null && !hideOtp) {
                 json.append(",\"resetToken\":\"").append(escapeJson(resetToken)).append("\"");
             }
-            if (otpCode != null) {
+            if (otpCode != null && !hideOtp) {
                 json.append(",\"otpCode\":\"").append(escapeJson(otpCode)).append("\"");
             }
             json.append("}");
