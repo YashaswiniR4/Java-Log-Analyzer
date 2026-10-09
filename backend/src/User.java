@@ -14,6 +14,7 @@ public class User {
     private boolean isVerified;
     private boolean isActive;
     private String otpCode;
+    private LocalDateTime otpExpiresAt;
     private LocalDateTime createdAt;
 
     public User() {
@@ -65,6 +66,9 @@ public class User {
 
     public String getOtpCode() { return otpCode; }
     public void setOtpCode(String otpCode) { this.otpCode = otpCode; }
+
+    public LocalDateTime getOtpExpiresAt() { return otpExpiresAt; }
+    public void setOtpExpiresAt(LocalDateTime otpExpiresAt) { this.otpExpiresAt = otpExpiresAt; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

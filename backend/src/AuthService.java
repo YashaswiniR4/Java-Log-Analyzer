@@ -21,6 +21,23 @@ public class AuthService {
     private static final Map<String, User> IN_MEMORY_USERS_BY_EMAIL = new ConcurrentHashMap<>();
     private static final Map<String, User> IN_MEMORY_USERS_BY_USERNAME = new ConcurrentHashMap<>();
     private static final Map<String, ResetToken> RESET_TOKENS = new ConcurrentHashMap<>();
+    private static final Map<String, java.util.List<Long>> REGISTRATION_RATE_LIMITS = new ConcurrentHashMap<>();
+    private static final Map<String, java.util.List<Long>> RESET_RATE_LIMITS = new ConcurrentHashMap<>();
+
+    private boolean isRateLimited(Map<String, java.util.List<Long>> map, String key, int maxRequests, int windowSeconds) {
+        if (key == null || key.isBlank()) return false;
+        long now = System.currentTimeMillis();
+        long windowStart = now - (windowSeconds * 1000L);
+
+        java.util.List<Long> timestamps = map.computeIfAbsent(key.toLowerCase(), k -> new java.util.concurrent.CopyOnWriteArrayList<>());
+        timestamps.removeIf(t -> t < windowStart);
+
+        if (timestamps.size() >= maxRequests) {
+            return true; // Rate limit exceeded
+        }
+        timestamps.add(now);
+        return false;
+    }
 
     private static class ResetToken {
         long userId;
@@ -49,6 +66,10 @@ public class AuthService {
      * Register a new user account.
      */
     public AuthResult register(String name, String email, String username, String phone, String password, String confirmPassword) {
+        return register(name, email, username, phone, password, confirmPassword, null);
+    }
+
+    public AuthResult register(String name, String email, String username, String phone, String password, String confirmPassword, String clientIp) {
         // 1. Validate mandatory fields
         if (name == null || name.isBlank()) return new AuthResult(false, "Full name is required");
         if (email == null || email.isBlank()) return new AuthResult(false, "Email address is required");
@@ -92,8 +113,14 @@ public class AuthService {
         String salt = BCrypt.gensalt(12);
         String passwordHash = BCrypt.hashpw(password, salt);
 
+        // 0. Rate limiting (max 5 registrations per 15 minutes per email / IP)
+        if (isRateLimited(REGISTRATION_RATE_LIMITS, email, 5, 900) || (clientIp != null && !clientIp.isBlank() && isRateLimited(REGISTRATION_RATE_LIMITS, "ip:" + clientIp, 5, 900))) {
+            return new AuthResult(false, "Too many registration attempts. Please wait 15 minutes before trying again.");
+        }
+
         // 7. Generate 6-digit OTP code for email verification
         String otpCode = String.format("%06d", new Random().nextInt(900000) + 100000);
+        LocalDateTime otpExpiresAt = LocalDateTime.now().plusMinutes(10);
 
         // 8. Create User Object
         User newUser = new User();
@@ -106,6 +133,7 @@ public class AuthService {
         newUser.setVerified(false); // Account unverified until OTP confirmed
         newUser.setActive(true);
         newUser.setOtpCode(otpCode);
+        newUser.setOtpExpiresAt(otpExpiresAt);
         newUser.setCreatedAt(LocalDateTime.now());
 
         // Save to Database / In-Memory
@@ -122,7 +150,7 @@ public class AuthService {
         IN_MEMORY_USERS_BY_EMAIL.put(email, newUser);
         IN_MEMORY_USERS_BY_USERNAME.put(username, newUser);
 
-        // Send real email via Gmail SMTP if credentials configured in .env
+        // Send real email via Gmail SMTP / HTTPS API
         boolean emailSent = emailService.sendOtpEmail(email, name, otpCode);
 
         System.out.println("[AUTH] Registered User: " + email + " | BCrypt Hash: " + passwordHash.substring(0, 15) + "... | OTP: " + otpCode + " | Email Sent: " + emailSent);
@@ -157,16 +185,21 @@ public class AuthService {
             return new AuthResult(true, "Account is already verified. You can log in.");
         }
 
-        if (otpCode.equals(user.getOtpCode()) || "123456".equals(otpCode)) {
-            user.setVerified(true);
-            user.setOtpCode(null);
-            if (dbManager != null && dbManager.isJdbcConfigured()) {
-                dbManager.updateUserVerification(user.getId(), true);
-            }
-            return new AuthResult(true, "Account activated successfully! You can now log in.");
-        } else {
+        if (user.getOtpCode() == null || !otpCode.equals(user.getOtpCode())) {
             return new AuthResult(false, "Invalid verification OTP code");
         }
+
+        if (user.getOtpExpiresAt() != null && LocalDateTime.now().isAfter(user.getOtpExpiresAt())) {
+            return new AuthResult(false, "Verification OTP code has expired. Please register again.");
+        }
+
+        user.setVerified(true);
+        user.setOtpCode(null);
+        user.setOtpExpiresAt(null);
+        if (dbManager != null && dbManager.isJdbcConfigured()) {
+            dbManager.updateUserVerification(user.getId(), true);
+        }
+        return new AuthResult(true, "Account activated successfully! You can now log in.");
     }
 
     /**
@@ -216,12 +249,20 @@ public class AuthService {
      * Important Security Rule: Response message is identical whether account exists or not.
      */
     public AuthResult forgotPassword(String email) {
+        return forgotPassword(email, null);
+    }
+
+    public AuthResult forgotPassword(String email, String clientIp) {
         String securityMsg = "If an account exists for this email, you will receive a password reset link.";
 
         if (email == null || email.isBlank()) {
             return new AuthResult(false, "Email address is required");
         }
         email = email.trim().toLowerCase();
+
+        if (isRateLimited(RESET_RATE_LIMITS, email, 5, 900) || (clientIp != null && !clientIp.isBlank() && isRateLimited(RESET_RATE_LIMITS, "ip:" + clientIp, 5, 900))) {
+            return new AuthResult(false, "Too many password reset requests. Please wait 15 minutes before trying again.");
+        }
 
         User user = findUserByEmail(email);
         if (user != null) {
@@ -396,7 +437,7 @@ public class AuthService {
             if (token != null) {
                 json.append(",\"token\":\"").append(escapeJson(token)).append("\"");
             }
-            boolean hideOtp = emailSent && !DotEnvLoader.get("SMTP_USER", "").isBlank();
+            boolean hideOtp = emailSent;
             if (resetToken != null && !hideOtp) {
                 json.append(",\"resetToken\":\"").append(escapeJson(resetToken)).append("\"");
             }

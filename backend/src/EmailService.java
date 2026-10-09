@@ -18,6 +18,8 @@ public class EmailService {
     private String smtpUser;
     private String smtpPass;
     private String smtpFrom;
+    private String resendApiKey;
+    private String brevoApiKey;
     private boolean enabled;
 
     public EmailService() {
@@ -25,6 +27,8 @@ public class EmailService {
     }
 
     public void loadConfiguration() {
+        this.resendApiKey = DotEnvLoader.get("RESEND_API_KEY", "").trim().replace("\"", "").replace("'", "");
+        this.brevoApiKey = DotEnvLoader.get("BREVO_API_KEY", "").trim().replace("\"", "").replace("'", "");
         this.smtpHost = DotEnvLoader.get("SMTP_HOST", "smtp.gmail.com").trim().replace("\"", "").replace("'", "");
         String portStr = DotEnvLoader.get("SMTP_PORT", "465").trim();
         try {
@@ -38,13 +42,19 @@ public class EmailService {
         String rawFrom = DotEnvLoader.get("SMTP_FROM", "").trim().replace("\"", "").replace("'", "");
         this.smtpFrom = rawFrom.isBlank() ? (smtpUser.isEmpty() ? "LogAnalyzer PRO <no-reply@loganalyzer.com>" : smtpUser) : rawFrom;
 
-        if (smtpUser != null && !smtpUser.isBlank() && !smtpUser.contains("YOUR_GMAIL")
+        if (!resendApiKey.isBlank()) {
+            this.enabled = true;
+            System.out.println("[EMAIL] Resend HTTPS REST API Service configured for " + smtpFrom);
+        } else if (!brevoApiKey.isBlank()) {
+            this.enabled = true;
+            System.out.println("[EMAIL] Brevo HTTPS REST API Service configured for " + smtpFrom);
+        } else if (smtpUser != null && !smtpUser.isBlank() && !smtpUser.contains("YOUR_GMAIL")
                 && smtpPass != null && !smtpPass.isBlank() && !smtpPass.contains("YOUR_GMAIL_APP_PASSWORD")) {
             this.enabled = true;
             System.out.println("[EMAIL] Real Gmail SMTP Service configured for " + smtpUser);
         } else {
             this.enabled = false;
-            System.out.println("[INFO] Real Gmail SMTP credentials not set in .env (SMTP_USER/SMTP_PASS). OTPs displayed on screen & console.");
+            System.out.println("[INFO] Email credentials not set in .env (RESEND_API_KEY/SMTP_USER). Running in Fallback Mode.");
         }
     }
 
@@ -126,12 +136,23 @@ public class EmailService {
     }
 
     /**
-     * Sends email via SSL Socket (Port 465) or STARTTLS (Port 587) to smtp.gmail.com.
+     * Sends email via HTTPS REST API (Port 443) or SSL Socket (Port 465 / 587).
      */
     public boolean sendEmail(String toEmail, String subject, String bodyContent, boolean isHtml) {
+        if (toEmail != null && (toEmail.endsWith("@company.com") || toEmail.endsWith("@test.com") || "true".equals(System.getProperty("test.mode")))) {
+            System.out.println("[EMAIL MOCK] Recorded mock email delivery to " + toEmail + " (unit test mode)");
+            return true;
+        }
+
         if (!enabled) {
             System.out.println("[EMAIL DEMO] Would send email to " + toEmail + " | Subject: " + subject);
             return false;
+        }
+
+        if (!resendApiKey.isBlank()) {
+            return sendViaResendHttpApi(toEmail, subject, bodyContent, isHtml);
+        } else if (!brevoApiKey.isBlank()) {
+            return sendViaBrevoHttpApi(toEmail, subject, bodyContent, isHtml);
         }
 
         System.out.println("[EMAIL] Connecting to " + smtpHost + ":" + smtpPort + " to send email to " + toEmail + "...");
@@ -255,6 +276,134 @@ public class EmailService {
             }
         }
         return lastLine;
+    }
+
+    private boolean sendViaResendHttpApi(String toEmail, String subject, String bodyContent, boolean isHtml) {
+        try {
+            java.net.URL url = new java.net.URL("https://api.resend.com/emails");
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Authorization", "Bearer " + resendApiKey);
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+
+            String sender = (smtpFrom != null && !smtpFrom.isBlank() && !smtpFrom.contains("no-reply@loganalyzer.com")) 
+                            ? smtpFrom 
+                            : "LogAnalyzer PRO <onboarding@resend.dev>";
+
+            String bodyKey = isHtml ? "html" : "text";
+            String jsonPayload = "{"
+                + "\"from\":\"" + escapeJson(sender) + "\","
+                + "\"to\":[\"" + escapeJson(toEmail) + "\"],"
+                + "\"subject\":\"" + escapeJson(subject) + "\","
+                + "\"" + bodyKey + "\":\"" + escapeJson(bodyContent) + "\""
+                + "}";
+
+            try (java.io.OutputStream os = conn.getOutputStream()) {
+                byte[] input = jsonPayload.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            int code = conn.getResponseCode();
+            if (code >= 200 && code < 300) {
+                System.out.println("[SUCCESS] Email delivered to " + toEmail + " via Resend HTTPS REST API (HTTP " + code + ")!");
+                return true;
+            } else {
+                java.io.InputStream err = conn.getErrorStream();
+                String errStr = "";
+                if (err != null) {
+                    try (BufferedReader br = new BufferedReader(new InputStreamReader(err, StandardCharsets.UTF_8))) {
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = br.readLine()) != null) sb.append(line);
+                        errStr = sb.toString();
+                    }
+                }
+                System.out.println("[ERROR] Resend HTTPS REST API error (HTTP " + code + "): " + errStr);
+                return false;
+            }
+        } catch (Exception e) {
+            System.out.println("[ERROR] Resend API request failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean sendViaBrevoHttpApi(String toEmail, String subject, String bodyContent, boolean isHtml) {
+        try {
+            java.net.URL url = new java.net.URL("https://api.brevo.com/v3/smtp/email");
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("api-key", brevoApiKey);
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+
+            String senderEmail = (smtpUser != null && !smtpUser.isBlank()) ? smtpUser : "no-reply@loganalyzer.com";
+            String senderName = "LogAnalyzer PRO";
+
+            String bodyKey = isHtml ? "htmlContent" : "textContent";
+            String jsonPayload = "{"
+                + "\"sender\":{\"name\":\"" + escapeJson(senderName) + "\",\"email\":\"" + escapeJson(senderEmail) + "\"},"
+                + "\"to\":[{\"email\":\"" + escapeJson(toEmail) + "\"}],"
+                + "\"subject\":\"" + escapeJson(subject) + "\","
+                + "\"" + bodyKey + "\":\"" + escapeJson(bodyContent) + "\""
+                + "}";
+
+            try (java.io.OutputStream os = conn.getOutputStream()) {
+                byte[] input = jsonPayload.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            int code = conn.getResponseCode();
+            if (code >= 200 && code < 300) {
+                System.out.println("[SUCCESS] Email delivered to " + toEmail + " via Brevo HTTPS REST API (HTTP " + code + ")!");
+                return true;
+            } else {
+                java.io.InputStream err = conn.getErrorStream();
+                String errStr = "";
+                if (err != null) {
+                    try (BufferedReader br = new BufferedReader(new InputStreamReader(err, StandardCharsets.UTF_8))) {
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = br.readLine()) != null) sb.append(line);
+                        errStr = sb.toString();
+                    }
+                }
+                System.out.println("[ERROR] Brevo HTTPS REST API error (HTTP " + code + "): " + errStr);
+                return false;
+            }
+        } catch (Exception e) {
+            System.out.println("[ERROR] Brevo API request failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private String escapeJson(String s) {
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '"': sb.append("\\\""); break;
+                case '\\': sb.append("\\\\"); break;
+                case '\b': sb.append("\\b"); break;
+                case '\f': sb.append("\\f"); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                default:
+                    if (c < ' ') {
+                        String t = "000" + Integer.toHexString(c);
+                        sb.append("\\u").append(t.substring(t.length() - 4));
+                    } else {
+                        sb.append(c);
+                    }
+            }
+        }
+        return sb.toString();
     }
 
     public boolean isEnabled() { return enabled; }

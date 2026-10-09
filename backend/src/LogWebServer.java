@@ -374,6 +374,15 @@ public class LogWebServer {
     //                       AUTHENTICATION HANDLERS
     // ================================================================================
 
+    private static String getClientIp(HttpExchange exchange) {
+        String xForwardedFor = exchange.getRequestHeaders().getFirst("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        InetSocketAddress remote = exchange.getRemoteAddress();
+        return (remote != null && remote.getAddress() != null) ? remote.getAddress().getHostAddress() : "unknown";
+    }
+
     private class AuthRegisterHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -393,7 +402,8 @@ public class LogWebServer {
             String password = getJsonValue(body, "password");
             String confirmPassword = getJsonValue(body, "confirmPassword");
 
-            AuthService.AuthResult res = authService.register(name, email, username, phone, password, confirmPassword);
+            String clientIp = getClientIp(exchange);
+            AuthService.AuthResult res = authService.register(name, email, username, phone, password, confirmPassword, clientIp);
             sendJsonResponse(exchange, res.isSuccess() ? 200 : 400, res.toJson());
         }
     }
@@ -453,7 +463,8 @@ public class LogWebServer {
             String body = readRequestBody(exchange);
             String email = getJsonValue(body, "email");
 
-            AuthService.AuthResult res = authService.forgotPassword(email);
+            String clientIp = getClientIp(exchange);
+            AuthService.AuthResult res = authService.forgotPassword(email, clientIp);
             sendJsonResponse(exchange, 200, res.toJson());
         }
     }
