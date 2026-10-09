@@ -49,20 +49,40 @@ public class EmailService {
     }
 
     /**
-     * Send 6-Digit Email Verification OTP code via Gmail SMTP.
+     * Send 6-Digit Email Verification OTP code via Gmail SMTP HTML email.
      */
     public boolean sendOtpEmail(String recipientEmail, String recipientName, String otpCode) {
         String subject = "🔑 Your LogAnalyzer PRO Verification Code: " + otpCode;
-        String body = "Hello " + recipientName + ",\n\n"
-                + "Thank you for registering with LogAnalyzer PRO.\n\n"
-                + "Your 6-Digit Email Verification Code (OTP) is:\n\n"
-                + "    " + otpCode + "\n\n"
-                + "Enter this code on the activation screen to verify your account.\n"
-                + "If you did not request this code, please ignore this email.\n\n"
-                + "Regards,\n"
-                + "LogAnalyzer PRO Security Team";
+        String name = (recipientName != null && !recipientName.isBlank()) ? recipientName : "User";
+        String htmlBody = "<!DOCTYPE html>\n"
+                + "<html>\n"
+                + "<head>\n"
+                + "    <style>\n"
+                + "        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #0f172a; color: #f8fafc; padding: 20px; }\n"
+                + "        .card { max-width: 480px; margin: 0 auto; background: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; }\n"
+                + "        .title { color: #38bdf8; font-size: 22px; font-weight: bold; margin-bottom: 12px; }\n"
+                + "        .otp-box { background: rgba(34, 197, 94, 0.1); border: 2px dashed #22c55e; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0; }\n"
+                + "        .otp-code { font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #4ade80; font-family: monospace; }\n"
+                + "        .warning { font-size: 13px; color: #94a3b8; margin-top: 24px; border-top: 1px solid #334155; padding-top: 16px; }\n"
+                + "    </style>\n"
+                + "</head>\n"
+                + "<body>\n"
+                + "    <div class=\"card\">\n"
+                + "        <div class=\"title\">🔑 Account Verification Code</div>\n"
+                + "        <p>Hello <strong>" + name + "</strong>,</p>\n"
+                + "        <p>Thank you for registering with <strong>LogAnalyzer PRO</strong>. Please use the following 6-digit OTP verification code to activate your account:</p>\n"
+                + "        <div class=\"otp-box\">\n"
+                + "            <div class=\"otp-code\">" + otpCode + "</div>\n"
+                + "        </div>\n"
+                + "        <p>This code will expire in <strong>10 minutes</strong>.</p>\n"
+                + "        <div class=\"warning\">\n"
+                + "            🔒 <strong>Security Note:</strong> Never share this code with anyone. If you did not request this verification code, please ignore this email.\n"
+                + "        </div>\n"
+                + "    </div>\n"
+                + "</body>\n"
+                + "</html>";
 
-        return sendEmail(recipientEmail, subject, body);
+        return sendEmail(recipientEmail, subject, htmlBody, true);
     }
 
     /**
@@ -71,22 +91,44 @@ public class EmailService {
     public boolean sendPasswordResetEmail(String recipientEmail, String resetToken) {
         String resetUrl = "http://localhost:3000/reset-password?token=" + resetToken;
         String subject = "🔒 Password Reset Request - LogAnalyzer PRO";
-        String body = "Hello,\n\n"
-                + "We received a request to reset your password for your LogAnalyzer PRO account.\n\n"
-                + "Click the link below or copy your reset token to create a new password:\n\n"
-                + "Reset Token: " + resetToken + "\n"
-                + "Reset Link : " + resetUrl + "\n\n"
-                + "This link will expire in 30 minutes. If you did not request a password reset, you can safely ignore this email.\n\n"
-                + "Regards,\n"
-                + "LogAnalyzer PRO Security Team";
+        String htmlBody = "<!DOCTYPE html>\n"
+                + "<html>\n"
+                + "<head>\n"
+                + "    <style>\n"
+                + "        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #0f172a; color: #f8fafc; padding: 20px; }\n"
+                + "        .card { max-width: 480px; margin: 0 auto; background: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; }\n"
+                + "        .title { color: #f59e0b; font-size: 22px; font-weight: bold; margin-bottom: 12px; }\n"
+                + "        .token-box { background: rgba(245, 158, 11, 0.1); border: 1px dashed #f59e0b; border-radius: 8px; padding: 14px; word-break: break-all; font-family: monospace; color: #fbbf24; margin: 18px 0; }\n"
+                + "        .btn { display: inline-block; background: #3b82f6; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; margin-top: 12px; }\n"
+                + "        .warning { font-size: 13px; color: #94a3b8; margin-top: 24px; border-top: 1px solid #334155; padding-top: 16px; }\n"
+                + "    </style>\n"
+                + "</head>\n"
+                + "<body>\n"
+                + "    <div class=\"card\">\n"
+                + "        <div class=\"title\">🔒 Password Reset Request</div>\n"
+                + "        <p>We received a request to reset your password for your <strong>LogAnalyzer PRO</strong> account.</p>\n"
+                + "        <p>Your Reset Token is:</p>\n"
+                + "        <div class=\"token-box\">" + resetToken + "</div>\n"
+                + "        <p><a href=\"" + resetUrl + "\" class=\"btn\">Reset Password</a></p>\n"
+                + "        <p style=\"font-size: 13px; color: #94a3b8;\">This link will expire in 30 minutes.</p>\n"
+                + "        <div class=\"warning\">\n"
+                + "            If you did not request a password reset, you can safely ignore this email.\n"
+                + "        </div>\n"
+                + "    </div>\n"
+                + "</body>\n"
+                + "</html>";
 
-        return sendEmail(recipientEmail, subject, body);
+        return sendEmail(recipientEmail, subject, htmlBody, true);
+    }
+
+    public boolean sendEmail(String toEmail, String subject, String bodyText) {
+        return sendEmail(toEmail, subject, bodyText, false);
     }
 
     /**
-     * Sends email via SSL Socket to smtp.gmail.com.
+     * Sends email via SSL Socket (Port 465) or STARTTLS (Port 587) to smtp.gmail.com.
      */
-    public boolean sendEmail(String toEmail, String subject, String bodyText) {
+    public boolean sendEmail(String toEmail, String subject, String bodyContent, boolean isHtml) {
         if (!enabled) {
             System.out.println("[EMAIL DEMO] Would send email to " + toEmail + " | Subject: " + subject);
             return false;
@@ -97,62 +139,95 @@ public class EmailService {
         try (java.net.Socket plainSocket = new java.net.Socket()) {
             plainSocket.connect(new java.net.InetSocketAddress(smtpHost, smtpPort), 5000);
             SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
-            try (SSLSocket socket = (SSLSocket) sslSocketFactory.createSocket(plainSocket, smtpHost, smtpPort, true);
-                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-                 BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))) {
 
-                socket.setSoTimeout(5000);
-                socket.startHandshake();
+            SSLSocket socket;
+            BufferedReader reader;
+            BufferedWriter writer;
+
+            if (smtpPort == 587) {
+                // STARTTLS Explicit TLS Flow
+                reader = new BufferedReader(new InputStreamReader(plainSocket.getInputStream(), StandardCharsets.UTF_8));
+                writer = new BufferedWriter(new OutputStreamWriter(plainSocket.getOutputStream(), StandardCharsets.UTF_8));
+                plainSocket.setSoTimeout(5000);
 
                 readResponse(reader); // 220 Greeting
                 sendCommand(writer, "EHLO " + smtpHost);
                 readResponse(reader);
 
-                // AUTH LOGIN
-                sendCommand(writer, "AUTH LOGIN");
-                readResponse(reader); // 334 Username prompt
+                sendCommand(writer, "STARTTLS");
+                readResponse(reader); // 220 Ready to start TLS
 
-                sendCommand(writer, Base64.getEncoder().encodeToString(smtpUser.getBytes(StandardCharsets.UTF_8)));
-                readResponse(reader); // 334 Password prompt
+                socket = (SSLSocket) sslSocketFactory.createSocket(plainSocket, smtpHost, smtpPort, true);
+                socket.setSoTimeout(5000);
+                socket.startHandshake();
 
-                sendCommand(writer, Base64.getEncoder().encodeToString(smtpPass.getBytes(StandardCharsets.UTF_8)));
-                String authResp = readResponse(reader); // 235 Authentication successful
+                reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+                writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
 
-                if (!authResp.startsWith("235")) {
-                    System.out.println("[ERROR] Gmail SMTP Authentication Failed: " + authResp);
-                    return false;
-                }
-
-                // MAIL FROM
-                sendCommand(writer, "MAIL FROM:<" + smtpUser + ">");
+                sendCommand(writer, "EHLO " + smtpHost);
                 readResponse(reader);
+            } else {
+                // Port 465 Implicit SSL Flow
+                socket = (SSLSocket) sslSocketFactory.createSocket(plainSocket, smtpHost, smtpPort, true);
+                socket.setSoTimeout(5000);
+                socket.startHandshake();
 
-                // RCPT TO
-                sendCommand(writer, "RCPT TO:<" + toEmail + ">");
+                reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+                writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+
+                readResponse(reader); // 220 Greeting
+                sendCommand(writer, "EHLO " + smtpHost);
                 readResponse(reader);
+            }
 
-                // DATA
-                sendCommand(writer, "DATA");
-                readResponse(reader); // 354 Start mail input
+            // AUTH LOGIN
+            sendCommand(writer, "AUTH LOGIN");
+            readResponse(reader); // 334 Username prompt
 
-                // Headers & Body
-                writer.write("From: " + smtpFrom + "\r\n");
-                writer.write("To: " + toEmail + "\r\n");
-                writer.write("Subject: " + subject + "\r\n");
+            sendCommand(writer, Base64.getEncoder().encodeToString(smtpUser.getBytes(StandardCharsets.UTF_8)));
+            readResponse(reader); // 334 Password prompt
+
+            sendCommand(writer, Base64.getEncoder().encodeToString(smtpPass.getBytes(StandardCharsets.UTF_8)));
+            String authResp = readResponse(reader); // 235 Authentication successful
+
+            if (!authResp.startsWith("235")) {
+                System.out.println("[ERROR] Gmail SMTP Authentication Failed: " + authResp);
+                return false;
+            }
+
+            // MAIL FROM
+            sendCommand(writer, "MAIL FROM:<" + smtpUser + ">");
+            readResponse(reader);
+
+            // RCPT TO
+            sendCommand(writer, "RCPT TO:<" + toEmail + ">");
+            readResponse(reader);
+
+            // DATA
+            sendCommand(writer, "DATA");
+            readResponse(reader); // 354 Start mail input
+
+            // Headers & Body
+            writer.write("From: " + smtpFrom + "\r\n");
+            writer.write("To: " + toEmail + "\r\n");
+            writer.write("Subject: " + subject + "\r\n");
+            if (isHtml) {
+                writer.write("Content-Type: text/html; charset=UTF-8\r\n");
+            } else {
                 writer.write("Content-Type: text/plain; charset=UTF-8\r\n");
-                writer.write("\r\n");
-                writer.write(bodyText + "\r\n");
-                writer.write(".\r\n");
-                writer.flush();
+            }
+            writer.write("\r\n");
+            writer.write(bodyContent + "\r\n");
+            writer.write(".\r\n");
+            writer.flush();
 
-                String dataResp = readResponse(reader); // 250 OK
+            String dataResp = readResponse(reader); // 250 OK
 
-                sendCommand(writer, "QUIT");
+            sendCommand(writer, "QUIT");
 
-                if (dataResp.startsWith("250")) {
-                    System.out.println("[SUCCESS] Email successfully sent to " + toEmail + " via Gmail SMTP!");
-                    return true;
-                }
+            if (dataResp.startsWith("250")) {
+                System.out.println("[SUCCESS] Email successfully sent to " + toEmail + " via Gmail SMTP!");
+                return true;
             }
         } catch (Exception e) {
             System.out.println("[ERROR] Email Sending Error: " + e.getMessage());
