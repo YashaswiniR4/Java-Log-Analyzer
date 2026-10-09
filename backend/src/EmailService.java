@@ -217,7 +217,11 @@ public class EmailService {
                 writer.write("Content-Type: text/plain; charset=UTF-8\r\n");
             }
             writer.write("\r\n");
-            writer.write(bodyContent + "\r\n");
+            String formattedBody = bodyContent.replace("\r\n", "\n").replace("\n", "\r\n");
+            if (!formattedBody.endsWith("\r\n")) {
+                formattedBody += "\r\n";
+            }
+            writer.write(formattedBody);
             writer.write(".\r\n");
             writer.flush();
 
