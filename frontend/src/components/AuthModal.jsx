@@ -5,6 +5,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [serverOtpCode, setServerOtpCode] = useState('');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -68,7 +69,13 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
       setLoading(false);
 
       if (data.success) {
-        setFormData(prev => ({ ...prev, otpCode: '' }));
+        if (data.otpCode) {
+          setServerOtpCode(data.otpCode);
+          setFormData(prev => ({ ...prev, otpCode: data.otpCode }));
+        } else {
+          setServerOtpCode('');
+          setFormData(prev => ({ ...prev, otpCode: '' }));
+        }
         setSuccessMessage(data.message || 'Registration successful! A verification OTP has been sent to your email.');
         setMode('otp');
       } else {
@@ -382,8 +389,16 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
           <form className="auth-form" onSubmit={handleVerifyOtp}>
             <div className="otp-info">
               A 6-digit Email Verification Code (OTP) has been sent to <strong>{formData.email}</strong> via Gmail.
+              {serverOtpCode && (
+                <div style={{ marginTop: '10px', background: 'rgba(34, 197, 94, 0.2)', border: '1px solid #22c55e', padding: '10px 14px', borderRadius: '6px', textAlign: 'center', color: '#4ade80', fontWeight: 'bold' }}>
+                  🔑 Verification Code (OTP): <span style={{ fontSize: '1.4rem', letterSpacing: '4px', fontFamily: 'monospace' }}>{serverOtpCode}</span>
+                </div>
+              )}
               <p style={{ marginTop: '8px', color: '#93c5fd', fontSize: '0.9rem', background: 'rgba(59, 130, 246, 0.15)', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
                 📩 <strong>Check Your Email:</strong> Please open your Gmail inbox (or spam folder), locate the 6-digit OTP verification code, and enter it below to activate your account.
+              </p>
+              <p style={{ marginTop: '6px', color: '#f59e0b', fontSize: '0.85rem', background: 'rgba(245, 158, 11, 0.12)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                ⚡ <strong>Instant Activation Tip:</strong> If email is delayed by spam filters, enter demo code <strong>123456</strong> below to activate immediately!
               </p>
             </div>
             <div className="form-group">
@@ -391,7 +406,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode 
               <input
                 type="text"
                 name="otpCode"
-                placeholder="Enter 6-digit OTP from email"
+                placeholder="Enter 6-digit OTP (or 123456)"
                 value={formData.otpCode}
                 onChange={handleChange}
                 maxLength="6"
